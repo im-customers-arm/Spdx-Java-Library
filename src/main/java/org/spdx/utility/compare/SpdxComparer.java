@@ -17,8 +17,6 @@
  */
 package org.spdx.utility.compare;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -54,7 +52,6 @@ import org.spdx.library.model.v2.SpdxSnippet;
 import org.spdx.library.model.v2.license.AnyLicenseInfo;
 import org.spdx.library.model.v2.license.ExtractedLicenseInfo;
 import org.spdx.licenseTemplate.LicenseTextHelper;
-
 /**
  * Performs a comparison between two or more SPDX documents and holds the results of the comparison
  * <p>
@@ -176,16 +173,11 @@ public class SpdxComparer {
 	 * @throws InvalidSPDXAnalysisException on SPDX parsing errors
 	 */
 	public synchronized void compare(List<SpdxDocument> spdxDocuments) throws InvalidSPDXAnalysisException, SpdxCompareException {
-		LocalDateTime start = LocalDateTime.now();
-
 		//TODO: Add a monitor function which allows for cancel
 		clearCompareResults();
 		this.spdxDocs = spdxDocuments;
 		differenceFound = false;
 		performCompare();	
-
-		System.out.println("SpdxComparer.compare() time elapsed: " + 
-		Duration.between(start, LocalDateTime.now()).toMillis() + " ms");
 	}
 
 	/**
@@ -378,8 +370,6 @@ public class SpdxComparer {
 	 * @throws InvalidSPDXAnalysisException on SPDX parsing errors
 	 */
 	private void compareDocumentRelationships() throws InvalidSPDXAnalysisException {
-		LocalDateTime start = LocalDateTime.now();
-
 		// this will be a N x N comparison of all document level relationships to fill the
 		// hashmap uniqueDocumentRelationships
 		for (int i = 0; i < spdxDocs.size(); i++) {
@@ -408,9 +398,6 @@ public class SpdxComparer {
 		if (!this._isDocumentRelationshipsEqualsNoCheck()) {
 			this.differenceFound = true;
 		}	
-
-		System.out.println("SpdxComparer.compareDocumentRelationships() time elapsed: " + 
-		Duration.between(start, LocalDateTime.now()).toMillis() + " ms");
 	}
 
 	/**
@@ -1188,7 +1175,6 @@ public class SpdxComparer {
 	 * @throws InvalidSPDXAnalysisException on SPDX parsing errors
 	 * @return true if the collections all contain equivalent items
 	 */
-	// An ordering-based comparison of two collections of ModelObjectV2 objects.
 	public static boolean collectionsEquivalent(Collection<? extends ModelObjectV2> collectionA, Collection<? extends ModelObjectV2> collectionB) throws InvalidSPDXAnalysisException {
 		if (Objects.isNull(collectionA)) {
 			return Objects.isNull(collectionB);
@@ -1199,9 +1185,7 @@ public class SpdxComparer {
 		if (collectionA.size() != collectionB.size()) {
 			return false;
 		}
-		LocalDateTime start = LocalDateTime.now();
 
-		// Convert the collections to lists and filter out null elements.
 		List<ModelObjectV2> listA = collectionA.stream().filter(Objects::nonNull).collect(Collectors.toList());
 		List<ModelObjectV2> listB = collectionB.stream().filter(Objects::nonNull).collect(Collectors.toList());
 
@@ -1227,14 +1211,10 @@ public class SpdxComparer {
 			ModelObjectV2 itemA = listA.get(i);
 			ModelObjectV2 itemB = listB.get(i);
 			if (!itemA.equivalent(itemB)) {
-				System.out.println("Mismatched item at index " + i);
 				return false;
 			}
 		}
 
-		// Assuming collections are equivalent for benchmarking purposes.
-		System.out.println("SpdxComparer.collectionsEquivalent() completed all loop iterations with ordered comparisons. Time elapsed: " +
-		Duration.between(start, LocalDateTime.now()).toMillis() + " ms");
 		return true;
 	}
 
@@ -2058,7 +2038,6 @@ public class SpdxComparer {
 			if (index >= 0) {
 				found = true;
 			}
-
 			if (!found) {
 				retval.add(relA);
 			}
