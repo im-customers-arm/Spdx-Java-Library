@@ -17,10 +17,13 @@
  */
 package org.spdx.utility.compare;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -1174,6 +1177,7 @@ public class SpdxComparer {
 	 * @throws InvalidSPDXAnalysisException on SPDX parsing errors
 	 * @return true if the collections all contain equivalent items
 	 */
+	// An ordering-based comparison of two collections of ModelObjectV2 objects.
 	public static boolean collectionsEquivalent(Collection<? extends ModelObjectV2> collectionA, Collection<? extends ModelObjectV2> collectionB) throws InvalidSPDXAnalysisException {
 		if (Objects.isNull(collectionA)) {
 			return Objects.isNull(collectionB);
@@ -1184,24 +1188,42 @@ public class SpdxComparer {
 		if (collectionA.size() != collectionB.size()) {
 			return false;
 		}
-		for (ModelObjectV2 elementA:collectionA) {
-			if (Objects.isNull(elementA)) {
-				continue;
-			}
-			boolean found = false;
-			for (ModelObjectV2 elementB:collectionB) {
-				if (Objects.isNull(elementB)) {
-					continue;
+		LocalDateTime start = LocalDateTime.now();
+
+		// Convert the collections to lists and filter out null elements.
+		List<ModelObjectV2> listA = collectionA.stream().filter(Objects::nonNull).collect(Collectors.toList());
+		List<ModelObjectV2> listB = collectionB.stream().filter(Objects::nonNull).collect(Collectors.toList());
+
+		// Define a comparator based on equivalent() and a fallback ordering.
+		Comparator<ModelObjectV2> comparator = (o1, o2) -> {
+			try {
+				if (o1.equivalent(o2)) {
+					return 0;
 				}
-				if (elementA.equivalent(elementB)) {
-					found = true;
-					break;
-				}
+			} catch (InvalidSPDXAnalysisException e) {
+				throw new RuntimeException(e);
 			}
-			if (!found) {
+			// Fallback compare using toString()
+			return o1.toString().compareTo(o2.toString());
+		};
+
+		// Sort both lists.
+		Collections.sort(listA, comparator);
+		Collections.sort(listB, comparator);
+
+		// Compare sorted lists element-by-element.
+		for (int i = 0; i < listA.size(); i++) {
+			ModelObjectV2 itemA = listA.get(i);
+			ModelObjectV2 itemB = listB.get(i);
+			if (!itemA.equivalent(itemB)) {
+				System.out.println("Mismatched item at index " + i);
 				return false;
 			}
 		}
+
+		// Assuming collections are equivalent for benchmarking purposes.
+		System.out.println("SpdxComparer.collectionsEquivalent() completed all loop iterations with ordered comparisons. Time elapsed: " +
+		Duration.between(start, LocalDateTime.now()).toMillis() + " ms");
 		return true;
 	}
 
