@@ -54,6 +54,7 @@ import org.spdx.library.model.v2.SpdxSnippet;
 import org.spdx.library.model.v2.license.AnyLicenseInfo;
 import org.spdx.library.model.v2.license.ExtractedLicenseInfo;
 import org.spdx.licenseTemplate.LicenseTextHelper;
+
 /**
  * Performs a comparison between two or more SPDX documents and holds the results of the comparison
  * <p>
@@ -175,11 +176,16 @@ public class SpdxComparer {
 	 * @throws InvalidSPDXAnalysisException on SPDX parsing errors
 	 */
 	public synchronized void compare(List<SpdxDocument> spdxDocuments) throws InvalidSPDXAnalysisException, SpdxCompareException {
+		LocalDateTime start = LocalDateTime.now();
+
 		//TODO: Add a monitor function which allows for cancel
 		clearCompareResults();
 		this.spdxDocs = spdxDocuments;
 		differenceFound = false;
 		performCompare();	
+
+		System.out.println("SpdxComparer.compare() time elapsed: " + 
+		Duration.between(start, LocalDateTime.now()).toMillis() + " ms");
 	}
 
 	/**
@@ -372,6 +378,8 @@ public class SpdxComparer {
 	 * @throws InvalidSPDXAnalysisException on SPDX parsing errors
 	 */
 	private void compareDocumentRelationships() throws InvalidSPDXAnalysisException {
+		LocalDateTime start = LocalDateTime.now();
+
 		// this will be a N x N comparison of all document level relationships to fill the
 		// hashmap uniqueDocumentRelationships
 		for (int i = 0; i < spdxDocs.size(); i++) {
@@ -400,6 +408,9 @@ public class SpdxComparer {
 		if (!this._isDocumentRelationshipsEqualsNoCheck()) {
 			this.differenceFound = true;
 		}	
+
+		System.out.println("SpdxComparer.compareDocumentRelationships() time elapsed: " + 
+		Duration.between(start, LocalDateTime.now()).toMillis() + " ms");
 	}
 
 	/**
@@ -1980,6 +1991,43 @@ public class SpdxComparer {
 		return retval;
 	}
 
+
+	/**
+	 * A wrapper class for Relationship objects to allow for sorting and comparison
+	 * based on the equivalent() method defined in the grandparent CoreModelObject class.
+	 */
+	private static class RelationshipEquivalenceWrapper implements Comparable<RelationshipEquivalenceWrapper> {
+		private final Relationship wrapped;
+
+		public RelationshipEquivalenceWrapper(Relationship wrapped) {
+			if (wrapped == null) {
+				throw new IllegalArgumentException("Wrapped Relationship cannot be null");
+			}
+			this.wrapped = wrapped;
+		}
+
+		public Relationship getWrapped() {
+			return wrapped;
+		}
+
+		@Override
+		public int compareTo(RelationshipEquivalenceWrapper other) {
+			// The equivalent() method is defined in the grandparent CoreModelObject class.
+			try {
+				// If the relationships are equivalent, they are considered equal in order.
+				if (wrapped.equivalent(other.wrapped)) {
+					return 0;
+				}
+			} catch (InvalidSPDXAnalysisException e) {
+				throw new RuntimeException("Error during equivalence comparison", e);
+			}
+
+			// Use the Relationship comparator
+			return this.wrapped.compareTo(other.wrapped);
+		}
+	}
+
+
 	/**
 	 * Find unique relationships that are present in relationshipsA but not relationshipsB
 	 * @param relationshipsA relationship to compare
@@ -1993,19 +2041,24 @@ public class SpdxComparer {
 		if (relationshipsA == null) {
 			return retval;
 		}
+
+		List<RelationshipEquivalenceWrapper> sortedRelationshipsB = relationshipsB.stream()
+				.filter(Objects::nonNull)
+				.map(RelationshipEquivalenceWrapper::new)
+				.sorted()
+				.collect(Collectors.toList());
+
 		for (Relationship relA:relationshipsA) {
 			if (Objects.isNull(relA)) {
 				continue;
 			}
+			RelationshipEquivalenceWrapper wrappedRelA = new RelationshipEquivalenceWrapper(relA);
 			boolean found = false;
-			if (relationshipsB != null) {
-				for (Relationship relB:relationshipsB) {
-					if (relA.equivalent(relB)) {
-						found = true;
-						break;
-					}
-				}
+			int index = Collections.binarySearch(sortedRelationshipsB, wrappedRelA);
+			if (index >= 0) {
+				found = true;
 			}
+
 			if (!found) {
 				retval.add(relA);
 			}
