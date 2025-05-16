@@ -23,12 +23,14 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -2022,26 +2024,43 @@ public class SpdxComparer {
 			return retval;
 		}
 
-		List<RelationshipEquivalenceWrapper> sortedRelationshipsB = relationshipsB.stream()
-				.filter(Objects::nonNull)
-				.map(RelationshipEquivalenceWrapper::new)
-				.sorted()
-				.collect(Collectors.toList());
+		// Create a HashSet to store the relationshipA Ids
+		Set<String> relationshipAIds = new HashSet<>();
 
-		for (Relationship relA:relationshipsA) {
+		// For each relationship in relationshipsA
+		for (Relationship relA : relationshipsA) {
 			if (Objects.isNull(relA)) {
 				continue;
 			}
-			RelationshipEquivalenceWrapper wrappedRelA = new RelationshipEquivalenceWrapper(relA);
-			boolean found = false;
-			int index = Collections.binarySearch(sortedRelationshipsB, wrappedRelA);
-			if (index >= 0) {
-				found = true;
-			}
-			if (!found) {
-				retval.add(relA);
+
+			// Get the related SPDX Element
+			Optional<SpdxElement> relatedSpdxElementA = relA.getRelatedSpdxElement();
+
+			// If the SPDXElement is a SPDXFile, add its ID to the set
+			if (relatedSpdxElementA.isPresent()) {
+				relationshipAIds.add(relatedSpdxElementA.get().getId());
 			}
 		}
+
+		// For each relationship in relationshipsB
+		for (Relationship relB : relationshipsB) {
+			if (Objects.isNull(relB)) {
+				continue;
+			}
+
+			// Get the related SPDX Element
+			Optional<SpdxElement> relatedSpdxElementB = relB.getRelatedSpdxElement();
+
+			// If the SPDXElement is a SPDXFile, check if its ID is in the set
+			if (relatedSpdxElementB.isPresent()) {
+				String relatedId = relatedSpdxElementB.get().getId();
+				if (relationshipAIds.contains(relatedId)) {
+					// Add it to retval
+					retval.add(relB);
+				}
+			}
+		}
+
 		return retval;
 	}
 	
