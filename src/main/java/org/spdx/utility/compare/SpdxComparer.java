@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -1184,24 +1185,36 @@ public class SpdxComparer {
 		if (collectionA.size() != collectionB.size()) {
 			return false;
 		}
-		for (ModelObjectV2 elementA:collectionA) {
-			if (Objects.isNull(elementA)) {
-				continue;
-			}
-			boolean found = false;
-			for (ModelObjectV2 elementB:collectionB) {
-				if (Objects.isNull(elementB)) {
-					continue;
+
+		List<ModelObjectV2> listA = collectionA.stream().filter(Objects::nonNull).collect(Collectors.toList());
+		List<ModelObjectV2> listB = collectionB.stream().filter(Objects::nonNull).collect(Collectors.toList());
+
+		// Define a comparator based on equivalent() and a fallback ordering.
+		Comparator<ModelObjectV2> comparator = (o1, o2) -> {
+			try {
+				if (o1.equivalent(o2)) {
+					return 0;
 				}
-				if (elementA.equivalent(elementB)) {
-					found = true;
-					break;
-				}
+			} catch (InvalidSPDXAnalysisException e) {
+				throw new RuntimeException(e);
 			}
-			if (!found) {
+			// Fallback compare using toString()
+			return o1.toString().compareTo(o2.toString());
+		};
+
+		// Sort both lists.
+		Collections.sort(listA, comparator);
+		Collections.sort(listB, comparator);
+
+		// Compare sorted lists element-by-element.
+		for (int i = 0; i < listA.size(); i++) {
+			ModelObjectV2 itemA = listA.get(i);
+			ModelObjectV2 itemB = listB.get(i);
+			if (!itemA.equivalent(itemB)) {
 				return false;
 			}
 		}
+
 		return true;
 	}
 
@@ -1958,6 +1971,43 @@ public class SpdxComparer {
 		return retval;
 	}
 
+
+	/**
+	 * A wrapper class for Relationship objects to allow for sorting and comparison
+	 * based on the equivalent() method defined in the grandparent CoreModelObject class.
+	 */
+	private static class RelationshipEquivalenceWrapper implements Comparable<RelationshipEquivalenceWrapper> {
+		private final Relationship wrapped;
+
+		public RelationshipEquivalenceWrapper(Relationship wrapped) {
+			if (wrapped == null) {
+				throw new IllegalArgumentException("Wrapped Relationship cannot be null");
+			}
+			this.wrapped = wrapped;
+		}
+
+		public Relationship getWrapped() {
+			return wrapped;
+		}
+
+		@Override
+		public int compareTo(RelationshipEquivalenceWrapper other) {
+			// The equivalent() method is defined in the grandparent CoreModelObject class.
+			try {
+				// If the relationships are equivalent, they are considered equal in order.
+				if (wrapped.equivalent(other.wrapped)) {
+					return 0;
+				}
+			} catch (InvalidSPDXAnalysisException e) {
+				throw new RuntimeException("Error during equivalence comparison", e);
+			}
+
+			// Use the Relationship comparator
+			return this.wrapped.compareTo(other.wrapped);
+		}
+	}
+
+
 	/**
 	 * Find unique relationships that are present in relationshipsA but not relationshipsB
 	 * @param relationshipsA relationship to compare
@@ -1971,18 +2021,22 @@ public class SpdxComparer {
 		if (relationshipsA == null) {
 			return retval;
 		}
+
+		List<RelationshipEquivalenceWrapper> sortedRelationshipsB = relationshipsB.stream()
+				.filter(Objects::nonNull)
+				.map(RelationshipEquivalenceWrapper::new)
+				.sorted()
+				.collect(Collectors.toList());
+
 		for (Relationship relA:relationshipsA) {
 			if (Objects.isNull(relA)) {
 				continue;
 			}
+			RelationshipEquivalenceWrapper wrappedRelA = new RelationshipEquivalenceWrapper(relA);
 			boolean found = false;
-			if (relationshipsB != null) {
-				for (Relationship relB:relationshipsB) {
-					if (relA.equivalent(relB)) {
-						found = true;
-						break;
-					}
-				}
+			int index = Collections.binarySearch(sortedRelationshipsB, wrappedRelA);
+			if (index >= 0) {
+				found = true;
 			}
 			if (!found) {
 				retval.add(relA);
