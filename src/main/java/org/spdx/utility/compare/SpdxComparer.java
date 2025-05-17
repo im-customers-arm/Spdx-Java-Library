@@ -2024,8 +2024,7 @@ public class SpdxComparer {
 			return retval;
 		}
 
-		// Create a HashSet to store the relationshipA Ids
-		Set<String> relationshipAIds = new HashSet<>();
+		HashMap<String, SpdxElement> spdxElements = new HashMap<>();
 
 		// For each relationship in relationshipsA
 		for (Relationship relA : relationshipsA) {
@@ -2038,7 +2037,9 @@ public class SpdxComparer {
 
 			// If the SPDXElement is a SPDXFile, add its ID to the set
 			if (relatedSpdxElementA.isPresent()) {
-				relationshipAIds.add(relatedSpdxElementA.get().getId());
+				SpdxElement spdxElement = relatedSpdxElementA.get();
+				String spdxElementId = spdxElement.getId();
+				spdxElements.put(spdxElementId, spdxElement);
 			}
 		}
 
@@ -2051,13 +2052,18 @@ public class SpdxComparer {
 			// Get the related SPDX Element
 			Optional<SpdxElement> relatedSpdxElementB = relB.getRelatedSpdxElement();
 
-			// If the SPDXElement is a SPDXFile, check if its ID is in the set
-			if (relatedSpdxElementB.isPresent()) {
-				String relatedId = relatedSpdxElementB.get().getId();
-				if (relationshipAIds.contains(relatedId)) {
-					// Add it to retval
-					retval.add(relB);
+			if(relatedSpdxElementB.isPresent()) {
+				SpdxElement spdxElement = relatedSpdxElementB.get();
+				String spdxElementId = spdxElement.getId();
+				if (spdxElements.containsKey(spdxElementId)) {
+					SpdxElement compareObject = spdxElements.get(spdxElementId);
+
+					// Check if spdxElement and compareObject are equivalent
+					if (compareObject.equivalent(spdxElement)) {
+						continue; // Skip this relationship as it is equivalent
+					}
 				}
+				retval.add(relB);
 			}
 		}
 
