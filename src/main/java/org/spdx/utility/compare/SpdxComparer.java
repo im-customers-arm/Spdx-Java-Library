@@ -2024,24 +2024,7 @@ public class SpdxComparer {
 			return retval;
 		}
 
-		HashMap<String, SpdxElement> spdxElements = new HashMap<>();
-
-		// For each relationship in relationshipsA
-		for (Relationship relA : relationshipsA) {
-			if (Objects.isNull(relA)) {
-				continue;
-			}
-
-			// Get the related SPDX Element
-			Optional<SpdxElement> relatedSpdxElementA = relA.getRelatedSpdxElement();
-
-			// If the SPDXElement is a SPDXFile, add its ID to the set
-			if (relatedSpdxElementA.isPresent()) {
-				SpdxElement spdxElement = relatedSpdxElementA.get();
-				String spdxElementId = spdxElement.getId();
-				spdxElements.put(spdxElementId, spdxElement);
-			}
-		}
+		HashMap<String, Relationship> spdxElements = new HashMap<>();
 
 		// For each relationship in relationshipsB
 		for (Relationship relB : relationshipsB) {
@@ -2052,18 +2035,35 @@ public class SpdxComparer {
 			// Get the related SPDX Element
 			Optional<SpdxElement> relatedSpdxElementB = relB.getRelatedSpdxElement();
 
-			if(relatedSpdxElementB.isPresent()) {
+			// If the SPDXElement is a SPDXFile, add its ID to the set
+			if (relatedSpdxElementB.isPresent()) {
 				SpdxElement spdxElement = relatedSpdxElementB.get();
 				String spdxElementId = spdxElement.getId();
+				spdxElements.put(spdxElementId, relB);
+			}
+		}
+
+		// For each relationship in relationshipsA
+		for (Relationship relA : relationshipsA) {
+			if (Objects.isNull(relA)) {
+				continue;
+			}
+
+			// Get the related SPDX Element
+			Optional<SpdxElement> relatedSpdxElementA = relA.getRelatedSpdxElement();
+
+			if(relatedSpdxElementA.isPresent()) {
+				SpdxElement spdxElement = relatedSpdxElementA.get();
+				String spdxElementId = spdxElement.getId();
 				if (spdxElements.containsKey(spdxElementId)) {
-					SpdxElement compareObject = spdxElements.get(spdxElementId);
+					Relationship compareObject = spdxElements.get(spdxElementId);
 
 					// Check if spdxElement and compareObject are equivalent
-					if (compareObject.equivalent(spdxElement)) {
+					if (compareObject.equivalent(relA)) {
 						continue; // Skip this relationship as it is equivalent
 					}
 				}
-				retval.add(relB);
+				retval.add(relA);
 			}
 		}
 
