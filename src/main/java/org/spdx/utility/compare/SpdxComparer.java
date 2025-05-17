@@ -2043,6 +2043,8 @@ public class SpdxComparer {
 			}
 		}
 
+		boolean found = false;
+
 		// For each relationship in relationshipsA
 		for (Relationship relA : relationshipsA) {
 			if (Objects.isNull(relA)) {
@@ -2055,15 +2057,25 @@ public class SpdxComparer {
 			if(relatedSpdxElementA.isPresent()) {
 				SpdxElement spdxElement = relatedSpdxElementA.get();
 				String spdxElementId = spdxElement.getId();
+				// First check the cache if we can find an identically named element
 				if (spdxElements.containsKey(spdxElementId)) {
 					Relationship compareObject = spdxElements.get(spdxElementId);
 
-					// Check if spdxElement and compareObject are equivalent
+					// If the relationship is equivalent, skip it
 					if (compareObject.equivalent(relA)) {
-						continue; // Skip this relationship as it is equivalent
+						continue;
 					}
 				}
-				retval.add(relA);
+				// If the relationship is not equivalent, check the rest of the relationshipsB
+				for (Relationship relB : relationshipsB) {
+					if (relA.equivalent(relB)) {
+						found = true;
+						break;
+					}
+				}
+				if (!found) {
+					retval.add(relA);
+				}
 			}
 		}
 
