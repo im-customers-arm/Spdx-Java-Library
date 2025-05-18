@@ -2050,6 +2050,7 @@ public class SpdxComparer {
 			if (Objects.isNull(relA)) {
 				continue;
 			}
+			found = false;
 
 			// Get the related SPDX Element
 			Optional<SpdxElement> relatedSpdxElementA = relA.getRelatedSpdxElement();
